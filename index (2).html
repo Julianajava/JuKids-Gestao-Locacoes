@@ -1,0 +1,2154 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JuKids - Gestão de Aluguel de Brinquedos</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            blue: {
+                                50: '#f0f9ff',
+                                100: '#e0f2fe',
+                                200: '#bae6fd', // Baby Blue Light
+                                300: '#7dd3fc',
+                                400: '#38bdf8',
+                                500: '#0ea5e9', // Baby Blue Main
+                                600: '#0284c7',
+                                700: '#0369a1'
+                            },
+                            pink: {
+                                50: '#fdf2f8',
+                                100: '#fce7f3',
+                                200: '#fbcfe8', // Baby Pink Light
+                                300: '#f472b6', // Baby Pink Main
+                                400: '#e11d48',
+                                500: '#ec4899',
+                                600: '#db2777',
+                                700: '#be185d'
+                            },
+                            darkBg: '#0f172a',
+                            darkCard: '#1e293b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .brand-title {
+            font-family: 'Comfortaa', cursive;
+        }
+        /* Custom scrollbar para o painel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #fbcfe8;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-brand-darkBg dark:text-slate-100 transition-colors duration-200">
+    <div style="position:fixed;bottom:12px;right:12px;z-index:9999;background:#0f172a;color:#fff;padding:8px 12px;border-radius:10px;font:12px Arial;opacity:.9">Versão demonstrativa • dados fictícios</div>
+
+    <div id="root"></div>
+
+    <!-- React e Babel production CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- App Logic & UI -->
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        const INITIAL_TOYS = [
+            { id: 1, name: "Pula pula", rentalValue: 100.00, status: "AVAILABLE" },
+            { id: 2, name: "Espaço Baby", rentalValue: 150.00, status: "AVAILABLE" },
+            { id: 3, name: "Pegue e monte", rentalValue: 90.00, status: "AVAILABLE" }
+        ];
+
+        // Base de dados restaurada a partir das reservas já cadastradas pela usuária
+        const INITIAL_CLIENTS = [
+            { id: 9001, fullName: "Ana Souza", phone: "61999990001", notes: "Cliente fictício para demonstração" },
+            { id: 9002, fullName: "Bruno Lima", phone: "61999990002", notes: "Cliente fictício para demonstração" },
+            { id: 9003, fullName: "Carla Mendes", phone: "61999990003", notes: "Cliente fictício para demonstração" },
+            { id: 9004, fullName: "Diego Alves", phone: "61999990004", notes: "Cliente fictício para demonstração" },
+            { id: 9005, fullName: "Fernanda Rocha", phone: "61999990005", notes: "Cliente fictício para demonstração" }
+        ];
+        const INITIAL_BOOKINGS = [
+            { id: 9101, clientId: 9001, eventDate: "2026-09-06", deliveryTime: "08:00", withdrawalTime: "18:00", toyIds: [2], shippingValue: 40.00, totalValue: 190.00, depositValue: 60.00, remainingValue: 130.00, depositPaymentDate: "2026-09-02", status: "DEPOSIT_PAID", notes: "Reserva demonstrativa" },
+            { id: 9102, clientId: 9002, eventDate: "2026-09-12", deliveryTime: "09:00", withdrawalTime: "19:00", toyIds: [1, 3], shippingValue: 30.00, totalValue: 220.00, depositValue: 100.00, remainingValue: 120.00, depositPaymentDate: "2026-09-02", status: "DEPOSIT_PAID", notes: "Reserva demonstrativa" },
+            { id: 9103, clientId: 9003, eventDate: "2026-09-19", deliveryTime: "10:00", withdrawalTime: "20:00", toyIds: [1], shippingValue: 50.00, totalValue: 150.00, depositValue: 150.00, remainingValue: 0.00, depositPaymentDate: "2026-09-02", status: "PAID", notes: "Reserva demonstrativa" },
+            { id: 9104, clientId: 9004, eventDate: "2026-09-20", deliveryTime: "08:00", withdrawalTime: "18:00", toyIds: [3], shippingValue: 0.00, totalValue: 90.00, depositValue: 0.00, remainingValue: 90.00, depositPaymentDate: null, status: "WAITING_DEPOSIT", notes: "Reserva demonstrativa" },
+            { id: 9105, clientId: 9005, eventDate: "2026-09-26", deliveryTime: "08:00", withdrawalTime: "18:00", toyIds: [2, 3], shippingValue: 60.00, totalValue: 300.00, depositValue: 120.00, remainingValue: 180.00, depositPaymentDate: "2026-09-02", status: "DEPOSIT_PAID", notes: "Reserva demonstrativa" }
+        ];
+        const INITIAL_FINANCES = [
+            { id: 9201, clientId: 9001, bookingId: 9101, receivedDate: "2026-09-02", amountReceived: 60.00 },
+            { id: 9202, clientId: 9002, bookingId: 9102, receivedDate: "2026-09-02", amountReceived: 100.00 },
+            { id: 9203, clientId: 9003, bookingId: 9103, receivedDate: "2026-09-02", amountReceived: 150.00 },
+            { id: 9204, clientId: 9005, bookingId: 9105, receivedDate: "2026-09-02", amountReceived: 120.00 }
+        ];
+
+        // Garante que as reservas restauradas apareçam sempre que o app for aberto,
+        // mesmo em um navegador/arquivo "zerado" sem dados salvos ainda.
+        (function seedRestoredData() {
+            const SEED_VERSION = 'seed_demo_publico_2026_09_02';
+            if (localStorage.getItem('jukids_seed_version') !== SEED_VERSION) {
+                localStorage.setItem('jukids_toys_v6', JSON.stringify(INITIAL_TOYS));
+                localStorage.setItem('jukids_clients_v6', JSON.stringify(INITIAL_CLIENTS));
+                localStorage.setItem('jukids_bookings_v6', JSON.stringify(INITIAL_BOOKINGS));
+                localStorage.setItem('jukids_finances_v6', JSON.stringify(INITIAL_FINANCES));
+                localStorage.setItem('jukids_seed_version', SEED_VERSION);
+            }
+        })();
+
+        // Definindo datas relativas dinâmicas
+        const getRelativeDate = (offsetDays) => {
+            const date = new Date();
+            date.setDate(date.getDate() + offsetDays);
+            return date.toISOString().split('T')[0];
+        };
+
+        function App() {
+            const [currentTab, setCurrentTab] = useState('dashboard');
+            const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+            const [userRole, setUserRole] = useState('admin'); // 'admin' ou 'employee'
+            const [searchQuery, setSearchQuery] = useState('');
+
+            const [toys, setToys] = useState(() => {
+                const stored = localStorage.getItem('jukids_toys_v6');
+                return stored ? JSON.parse(stored) : INITIAL_TOYS;
+            });
+            const [clients, setClients] = useState(() => {
+                const stored = localStorage.getItem('jukids_clients_v6');
+                return stored ? JSON.parse(stored) : INITIAL_CLIENTS;
+            });
+            const [bookings, setBookings] = useState(() => {
+                const stored = localStorage.getItem('jukids_bookings_v6');
+                return stored ? JSON.parse(stored) : INITIAL_BOOKINGS;
+            });
+            const [finances, setFinances] = useState(() => {
+                const stored = localStorage.getItem('jukids_finances_v6');
+                return stored ? JSON.parse(stored) : INITIAL_FINANCES;
+            });
+            const [bookingLogs, setBookingLogs] = useState(() => {
+                const stored = localStorage.getItem('jukids_logs_v6');
+                return stored ? JSON.parse(stored) : [];
+            });
+
+            // Filtros Globais de Tempo
+            const [timeFilter, setTimeFilter] = useState('month'); // day, week, month, year, all
+
+            // Controle de Modais
+            const [showBookingModal, setShowBookingModal] = useState(false);
+            const [showClientModal, setShowClientModal] = useState(false);
+            const [showToyModal, setShowToyModal] = useState(false);
+            const [showPaymentModal, setShowPaymentModal] = useState(false);
+            const [selectedDate, setSelectedDate] = useState(null); // Para o calendário
+
+            // Sistema de Notificações Internas (Substitutos de alert() e confirm())
+            const [notification, setNotification] = useState(null);
+            const [confirmDialog, setConfirmDialog] = useState(null);
+
+            // Estados de criação de novos objetos
+            const [newClient, setNewClient] = useState({ fullName: '', phone: '', notes: '' });
+            const [newToy, setNewToy] = useState({ name: '', rentalValue: '', status: 'AVAILABLE' });
+            const [newPayment, setNewPayment] = useState({ clientId: '', bookingId: '', amountReceived: '', receivedDate: getRelativeDate(0) });
+            const [newBooking, setNewBooking] = useState({
+                clientName: '',
+                clientPhone: '',
+                eventDate: getRelativeDate(0),
+                deliveryTime: '08:00',
+                withdrawalTime: '18:00',
+                selectedToys: [],
+                shippingValue: '', 
+                depositValue: '',
+                notes: ''
+            });
+
+            // Estado de Edição de Reserva (null = criando nova, id = editando existente)
+            const [editingBookingId, setEditingBookingId] = useState(null);
+
+            // Estado de Conflito de Agenda (IA)
+            const [bookingConflict, setBookingConflict] = useState(null);
+            const [aiSuggestions, setAiSuggestions] = useState([]);
+
+            const triggerToast = (message, type = 'success') => {
+                setNotification({ message, type });
+                setTimeout(() => {
+                    setNotification(null);
+                }, 4000);
+            };
+
+            const triggerConfirm = (title, message, onConfirm) => {
+                setConfirmDialog({ title, message, onConfirm });
+            };
+
+            const cleanPhoneForWhatsApp = (phone) => {
+                if (!phone) return '';
+                let cleaned = phone.replace(/\D/g, ''); // Remove tudo que não for número
+                if (cleaned.length === 10 || cleaned.length === 11) {
+                    cleaned = '55' + cleaned; // Adiciona código do Brasil se não tiver
+                }
+                return cleaned;
+            };
+
+            const handleWhatsAppSend = (phone, text) => {
+                if (!phone || phone.trim() === '' || phone === 'Não Informado') {
+                    triggerToast("Telefone inválido ou não cadastrado!", "error");
+                    return;
+                }
+                const cleaned = cleanPhoneForWhatsApp(phone);
+                const url = `https://api.whatsapp.com/send?phone=${cleaned}&text=${encodeURIComponent(text)}`;
+                window.open(url, '_blank');
+            };
+
+            // DEFINIÇÃO DA MENSAGEM DO WHATSAPP CONFORME SOLICITADO PELO USUÁRIO (ACOLHEDORA E COM EMOJIS DE PALMAS/FESTA)
+            const generateConfirmationMessage = (booking) => {
+                const client = clients.find(c => c.id === booking.clientId);
+                const toyNames = booking.toyIds.map(id => toys.find(t => t.id === id)?.name).join(', ');
+                const formattedDate = new Date(booking.eventDate + 'T00:00:00').toLocaleDateString('pt-BR');
+                const shippingStr = Number(booking.shippingValue || 0) > 0 ? `🚚 *Frete:* ${formatBRL(booking.shippingValue)}\n` : '';
+                
+                return `🎉 Seja muito bem-vindo(a) à família Ju Kids, ${client?.fullName?.split(' ')[0] || ''}! 🎈\n\nQue alegria ter você com a gente! Sua reserva já está confirmadinha no nosso sistema. 💕\n\n📅 *Data:* ${formattedDate}\n⏰ *Horário:* ${booking.deliveryTime} às ${booking.withdrawalTime}\n🧸 *Brinquedos:* ${toyNames}\n${shippingStr}💰 *Total:* ${formatBRL(booking.totalValue)} · 💵 *Sinal:* ${formatBRL(booking.depositValue)} · ⚠️ *Restante:* ${formatBRL(booking.remainingValue)}\n\nQualquer dúvida é só chamar por aqui, tá bom? 🥰🎊`;
+            };
+
+            const generateBillingMessage = (booking) => {
+                const client = clients.find(c => c.id === booking.clientId);
+                const formattedDate = new Date(booking.eventDate + 'T00:00:00').toLocaleDateString('pt-BR');
+                return `Olá, ${client?.fullName}! 😊\n\nPassando para lembrar que o seu evento está chegando (dia *${formattedDate}*). \n\nAtualmente temos um saldo restante em aberto no valor de *${formatBRL(booking.remainingValue)}* referente à locação do brinquedo.\n\nQualquer dúvida sobre o pagamento ou detalhes da entrega, pode nos mandar mensagem por aqui! 🎈`;
+            };
+
+            useEffect(() => {
+                const currentVersion = "v6_frete_whatsapp_final";
+                const storedVersion = localStorage.getItem('jukids_version_v6');
+                
+                if (storedVersion !== currentVersion) {
+                    localStorage.setItem('jukids_toys_v6', JSON.stringify(toys));
+                    localStorage.setItem('jukids_clients_v6', JSON.stringify(clients));
+                    localStorage.setItem('jukids_bookings_v6', JSON.stringify(bookings));
+                    localStorage.setItem('jukids_finances_v6', JSON.stringify(finances));
+                    localStorage.setItem('jukids_logs_v6', JSON.stringify(bookingLogs));
+                    localStorage.setItem('jukids_version_v6', currentVersion);
+                }
+            }, []);
+
+            // Salva síncronamente e imediatamente quando os estados mudam
+            const saveState = (key, value) => {
+                localStorage.setItem(key, JSON.stringify(value));
+            };
+
+            // Double lock de segurança ao sair
+            useEffect(() => {
+                const handleBeforeUnload = () => {
+                    localStorage.setItem('jukids_toys_v6', JSON.stringify(toys));
+                    localStorage.setItem('jukids_clients_v6', JSON.stringify(clients));
+                    localStorage.setItem('jukids_bookings_v6', JSON.stringify(bookings));
+                    localStorage.setItem('jukids_finances_v6', JSON.stringify(finances));
+                    localStorage.setItem('jukids_logs_v6', JSON.stringify(bookingLogs));
+                };
+                window.addEventListener('beforeunload', handleBeforeUnload);
+                return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+            }, [toys, clients, bookings, finances, bookingLogs]);
+
+            // Gerenciador do Dark Mode
+            useEffect(() => {
+                if (darkMode) {
+                    document.documentElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                }
+            }, [darkMode]);
+
+            // Formatação de dinheiro
+            const formatBRL = (value) => {
+                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+            };
+
+            // Cálculo auxiliar para conflitos
+            const timeToMinutes = (timeStr) => {
+                const [hrs, mins] = timeStr.split(':').map(Number);
+                return hrs * 60 + mins;
+            };
+
+            // Log de alterações
+            const addLogDirectly = (bookingId, desc, currentLogs) => {
+                const log = {
+                    id: Date.now() + Math.random(),
+                    bookingId,
+                    userId: userRole === 'admin' ? 1 : 2,
+                    userName: userRole === 'admin' ? 'Administrador JuKids' : 'Funcionário',
+                    changeDescription: desc,
+                    changedAt: new Date().toLocaleString('pt-BR')
+                };
+                const updatedLogs = [log, ...currentLogs];
+                setBookingLogs(updatedLogs);
+                saveState('jukids_logs_v6', updatedLogs);
+            };
+
+            useEffect(() => {
+                if (!newBooking.eventDate || newBooking.selectedToys.length === 0) {
+                    setBookingConflict(null);
+                    setAiSuggestions([]);
+                    return;
+                }
+
+                const checkCollision = () => {
+                    const newStart = timeToMinutes(newBooking.deliveryTime);
+                    const newEnd = timeToMinutes(newBooking.withdrawalTime);
+
+                    for (const toyId of newBooking.selectedToys) {
+                        const targetToy = toys.find(t => t.id === Number(toyId));
+                        
+                        // Validar se o próprio brinquedo está em manutenção
+                        if (targetToy && targetToy.status === 'MAINTENANCE') {
+                            setBookingConflict(`O brinquedo "${targetToy.name}" está atualmente em Manutenção.`);
+                            generateAiSuggestions(toyId);
+                            return;
+                        }
+
+                        // Validar colisões de horário
+                        const activeBookings = bookings.filter(b => 
+                            b.eventDate === newBooking.eventDate && 
+                            b.status !== 'CANCELLED' &&
+                            b.id !== editingBookingId &&
+                            b.toyIds.includes(Number(toyId))
+                        );
+
+                        for (const eb of activeBookings) {
+                            const ebStart = timeToMinutes(eb.deliveryTime);
+                            const ebEnd = timeToMinutes(eb.withdrawalTime);
+
+                            if ((newStart < ebEnd) && (newEnd > ebStart)) {
+                                const clientName = clients.find(c => c.id === Number(eb.clientId))?.fullName || "Outro Cliente";
+                                setBookingConflict(`O brinquedo "${targetToy?.name}" já está reservado por ${clientName} nesta data das ${eb.deliveryTime} às ${eb.withdrawalTime}.`);
+                                generateAiSuggestions(toyId);
+                                return;
+                            }
+                        }
+                    }
+                    setBookingConflict(null);
+                    setAiSuggestions([]);
+                };
+
+                const generateAiSuggestions = (busyToyId) => {
+                    const busyToy = toys.find(t => t.id === Number(busyToyId));
+                    if (!busyToy) return;
+
+                    const alternativeToys = toys.filter(t => 
+                        t.id !== busyToy.id && 
+                        t.status === 'AVAILABLE' &&
+                        Math.abs(t.rentalValue - busyToy.rentalValue) <= 60
+                    );
+
+                    const freeAlternatives = alternativeToys.filter(t => {
+                        const newStart = timeToMinutes(newBooking.deliveryTime);
+                        const newEnd = timeToMinutes(newBooking.withdrawalTime);
+                        const activeBookings = bookings.filter(b => 
+                            b.eventDate === newBooking.eventDate && 
+                            b.status !== 'CANCELLED' &&
+                            b.id !== editingBookingId &&
+                            b.toyIds.includes(t.id)
+                        );
+                        
+                        return !activeBookings.some(eb => {
+                            const ebStart = timeToMinutes(eb.deliveryTime);
+                            const ebEnd = timeToMinutes(eb.withdrawalTime);
+                            return (newStart < ebEnd) && (newEnd > ebStart);
+                        });
+                    });
+
+                    setAiSuggestions(freeAlternatives);
+                };
+
+                checkCollision();
+            }, [newBooking, toys, bookings, editingBookingId]);
+
+            const bookingCalculatedValues = useMemo(() => {
+                const toysSum = newBooking.selectedToys.reduce((acc, id) => {
+                    const toy = toys.find(t => t.id === Number(id));
+                    return acc + (toy ? Number(toy.rentalValue) : 0);
+                }, 0);
+
+                const shipping = Number(newBooking.shippingValue || 0);
+                const total = toysSum + shipping;
+                const deposit = Number(newBooking.depositValue || 0);
+                const remaining = total - deposit;
+                const percentPaid = total > 0 ? Math.min(100, Math.round((deposit / total) * 100)) : 0;
+
+                return { toysSum, shipping, total, deposit, remaining, percentPaid };
+            }, [newBooking.selectedToys, newBooking.depositValue, newBooking.shippingValue, toys]);
+
+            const filteredBookings = useMemo(() => {
+                return bookings.filter(b => {
+                    const bDate = new Date(b.eventDate + 'T00:00:00');
+                    
+                    if (searchQuery) {
+                        const q = searchQuery.toLowerCase();
+                        const client = clients.find(c => c.id === b.clientId);
+                        const clientMatch = client?.fullName.toLowerCase().includes(q) || client?.phone.includes(q);
+                        const dateMatch = b.eventDate.includes(q);
+                        const toyMatch = b.toyIds.some(id => toys.find(t => t.id === id)?.name.toLowerCase().includes(q));
+                        if (!clientMatch && !dateMatch && !toyMatch) return false;
+                    }
+
+                    if (timeFilter === 'all') return true;
+                    if (timeFilter === 'day') return b.eventDate === getRelativeDate(0);
+                    if (timeFilter === 'week') {
+                        const todayNormalized = new Date(getRelativeDate(0) + 'T00:00:00');
+                        const diffTime = Math.abs(todayNormalized - bDate);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        return diffDays <= 7;
+                    }
+                    if (timeFilter === 'month') {
+                        const currentToday = new Date();
+                        return bDate.getMonth() === currentToday.getMonth() && bDate.getFullYear() === currentToday.getFullYear();
+                    }
+                    if (timeFilter === 'year') {
+                        const currentToday = new Date();
+                        return bDate.getFullYear() === currentToday.getFullYear();
+                    }
+                    return true;
+                });
+            }, [bookings, timeFilter, searchQuery, clients, toys]);
+
+            const filteredFinances = useMemo(() => {
+                return finances.filter(f => {
+                    const fDate = new Date(f.receivedDate + 'T00:00:00');
+                    if (timeFilter === 'all') return true;
+                    if (timeFilter === 'day') return f.receivedDate === getRelativeDate(0);
+                    if (timeFilter === 'week') {
+                        const todayNormalized = new Date(getRelativeDate(0) + 'T00:00:00');
+                        const diffTime = Math.abs(todayNormalized - fDate);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        return diffDays <= 7;
+                    }
+                    if (timeFilter === 'month') {
+                        const currentToday = new Date();
+                        return fDate.getMonth() === currentToday.getMonth() && fDate.getFullYear() === currentToday.getFullYear();
+                    }
+                    if (timeFilter === 'year') {
+                        const currentToday = new Date();
+                        return fDate.getFullYear() === currentToday.getFullYear();
+                    }
+                    return true;
+                });
+            }, [finances, timeFilter]);
+
+            const metrics = useMemo(() => {
+                const totalIncome = filteredFinances.reduce((acc, f) => acc + Number(f.amountReceived), 0);
+                const totalPending = filteredBookings.reduce((acc, b) => b.status !== 'CANCELLED' ? acc + Number(b.remainingValue) : acc, 0);
+                const eventsCount = filteredBookings.filter(b => b.status !== 'CANCELLED').length;
+                
+                const todayStr = getRelativeDate(0);
+                const tomorrowStr = getRelativeDate(1);
+                const todayEvents = bookings.filter(b => b.eventDate === todayStr && b.status !== 'CANCELLED').length;
+                const tomorrowEvents = bookings.filter(b => b.eventDate === tomorrowStr && b.status !== 'CANCELLED').length;
+
+                return {
+                    totalIncome,
+                    totalPending,
+                    eventsCount,
+                    todayEvents,
+                    tomorrowEvents,
+                    profit: totalIncome * 1.00
+                };
+            }, [filteredBookings, filteredFinances, bookings]);
+
+            const handleAddClient = (e) => {
+                e.preventDefault();
+                if (!newClient.fullName || !newClient.phone) return;
+                const client = {
+                    id: Date.now(),
+                    fullName: newClient.fullName,
+                    phone: newClient.phone,
+                    notes: newClient.notes
+                };
+                
+                const updated = [...clients, client];
+                setClients(updated);
+                saveState('jukids_clients_v6', updated);
+
+                setNewClient({ fullName: '', phone: '', notes: '' });
+                setShowClientModal(false);
+                triggerToast("Cliente cadastrado com sucesso!");
+            };
+
+            const handleAddToy = (e) => {
+                e.preventDefault();
+                if (!newToy.name || !newToy.rentalValue) return;
+                const toy = {
+                    id: Date.now(),
+                    name: newToy.name,
+                    rentalValue: parseFloat(newToy.rentalValue),
+                    status: newToy.status
+                };
+
+                const updated = [...toys, toy];
+                setToys(updated);
+                saveState('jukids_toys_v6', updated);
+
+                setNewToy({ name: '', rentalValue: '', status: 'AVAILABLE' });
+                setShowToyModal(false);
+                triggerToast("Novo brinquedo adicionado com sucesso!");
+            };
+
+            const handleAddBooking = (e) => {
+                e.preventDefault();
+                if (bookingConflict) return;
+                if (!newBooking.clientName.trim() || newBooking.selectedToys.length === 0) return;
+
+                let targetClientId;
+                const existingClient = clients.find(
+                    c => c.fullName.toLowerCase().trim() === newBooking.clientName.toLowerCase().trim()
+                );
+
+                if (existingClient) {
+                    targetClientId = existingClient.id;
+                } else {
+                    const newClientId = Date.now();
+                    const createdClient = {
+                        id: newClientId,
+                        fullName: newBooking.clientName.trim(),
+                        phone: newBooking.clientPhone || 'Não Informado',
+                        notes: 'Cadastrado automaticamente via nova reserva.'
+                    };
+                    
+                    const updatedClients = [...clients, createdClient];
+                    setClients(updatedClients);
+                    saveState('jukids_clients_v6', updatedClients);
+                    targetClientId = newClientId;
+                }
+
+                const bookingId = Date.now() + 1;
+                const booking = {
+                    id: bookingId,
+                    clientId: targetClientId,
+                    eventDate: newBooking.eventDate,
+                    deliveryTime: newBooking.deliveryTime,
+                    withdrawalTime: newBooking.withdrawalTime,
+                    toyIds: newBooking.selectedToys.map(Number),
+                    shippingValue: bookingCalculatedValues.shipping, 
+                    totalValue: bookingCalculatedValues.total,       
+                    depositValue: bookingCalculatedValues.deposit,
+                    remainingValue: bookingCalculatedValues.remaining,
+                    depositPaymentDate: bookingCalculatedValues.deposit > 0 ? getRelativeDate(0) : null,
+                    status: bookingCalculatedValues.remaining === 0 ? 'PAID' : (bookingCalculatedValues.deposit > 0 ? 'DEPOSIT_PAID' : 'WAITING_DEPOSIT'),
+                    notes: newBooking.notes
+                };
+
+                const updatedFinances = [...finances];
+                if (bookingCalculatedValues.deposit > 0) {
+                    const entry = {
+                        id: Date.now() + 2,
+                        clientId: targetClientId,
+                        bookingId: bookingId,
+                        receivedDate: getRelativeDate(0),
+                        amountReceived: bookingCalculatedValues.deposit
+                    };
+                    updatedFinances.push(entry);
+                    setFinances(updatedFinances);
+                    saveState('jukids_finances_v6', updatedFinances);
+                }
+
+                const updatedBookings = [...bookings, booking];
+                setBookings(updatedBookings);
+                saveState('jukids_bookings_v6', updatedBookings);
+
+                addLogDirectly(bookingId, `Reserva criada para ${newBooking.clientName.trim()}. Total: ${formatBRL(booking.totalValue)} (Frete: ${formatBRL(booking.shippingValue)}), Sinal: ${formatBRL(booking.depositValue)}`, bookingLogs);
+                
+                setNewBooking({
+                    clientName: '',
+                    clientPhone: '',
+                    eventDate: getRelativeDate(0),
+                    deliveryTime: '08:00',
+                    withdrawalTime: '18:00',
+                    selectedToys: [],
+                    shippingValue: '',
+                    depositValue: '',
+                    notes: ''
+                });
+                setShowBookingModal(false);
+                triggerToast("Reserva salva com sucesso!");
+            };
+
+            const handleUpdateBooking = (e) => {
+                e.preventDefault();
+                if (bookingConflict) return;
+                if (!newBooking.clientName.trim() || newBooking.selectedToys.length === 0) return;
+
+                const existingBooking = bookings.find(b => b.id === editingBookingId);
+                if (!existingBooking) return;
+
+                // Atualiza nome/telefone do cliente já vinculado, sem criar um cliente duplicado
+                const updatedClients = clients.map(c =>
+                    c.id === existingBooking.clientId
+                        ? { ...c, fullName: newBooking.clientName.trim(), phone: newBooking.clientPhone || c.phone }
+                        : c
+                );
+                setClients(updatedClients);
+                saveState('jukids_clients_v6', updatedClients);
+
+                const updatedBooking = {
+                    ...existingBooking,
+                    eventDate: newBooking.eventDate,
+                    deliveryTime: newBooking.deliveryTime,
+                    withdrawalTime: newBooking.withdrawalTime,
+                    toyIds: newBooking.selectedToys.map(Number),
+                    shippingValue: bookingCalculatedValues.shipping,
+                    totalValue: bookingCalculatedValues.total,
+                    depositValue: bookingCalculatedValues.deposit,
+                    remainingValue: bookingCalculatedValues.remaining,
+                    status: existingBooking.status === 'CANCELLED'
+                        ? 'CANCELLED'
+                        : (bookingCalculatedValues.remaining === 0 ? 'PAID' : (bookingCalculatedValues.deposit > 0 ? 'DEPOSIT_PAID' : 'WAITING_DEPOSIT')),
+                    notes: newBooking.notes
+                };
+
+                const updatedBookings = bookings.map(b => b.id === editingBookingId ? updatedBooking : b);
+                setBookings(updatedBookings);
+                saveState('jukids_bookings_v6', updatedBookings);
+
+                addLogDirectly(
+                    editingBookingId,
+                    `Reserva editada. Nova data: ${new Date(updatedBooking.eventDate + 'T00:00:00').toLocaleDateString('pt-BR')}, ${updatedBooking.deliveryTime} às ${updatedBooking.withdrawalTime}.`,
+                    bookingLogs
+                );
+
+                setEditingBookingId(null);
+                setNewBooking({
+                    clientName: '',
+                    clientPhone: '',
+                    eventDate: getRelativeDate(0),
+                    deliveryTime: '08:00',
+                    withdrawalTime: '18:00',
+                    selectedToys: [],
+                    shippingValue: '',
+                    depositValue: '',
+                    notes: ''
+                });
+                setShowBookingModal(false);
+                triggerToast("Reserva atualizada com sucesso!");
+            };
+
+            const handleAddPayment = (e) => {
+                e.preventDefault();
+                const bId = Number(newPayment.bookingId);
+                const booking = bookings.find(b => b.id === bId);
+                if (!booking) return;
+
+                const amount = parseFloat(newPayment.amountReceived);
+                if (isNaN(amount) || amount <= 0) return;
+
+                const updatedBookings = bookings.map(b => {
+                    if (b.id === bId) {
+                        const newRemaining = Math.max(0, Number(b.remainingValue) - amount);
+                        const newDeposit = Number(b.depositValue) + amount;
+                        const isFullyPaid = newRemaining === 0;
+                        return {
+                            ...b,
+                            depositValue: newDeposit,
+                            remainingValue: newRemaining,
+                            status: isFullyPaid ? 'PAID' : 'DEPOSIT_PAID'
+                        };
+                    }
+                    return b;
+                });
+
+                const entry = {
+                    id: Date.now(),
+                    clientId: booking.clientId,
+                    bookingId: bId,
+                    receivedDate: newPayment.receivedDate,
+                    amountReceived: amount
+                };
+
+                const updatedFinances = [...finances, entry];
+                setFinances(updatedFinances);
+                saveState('jukids_finances_v6', updatedFinances);
+
+                setBookings(updatedBookings);
+                saveState('jukids_bookings_v6', updatedBookings);
+
+                addLogDirectly(bId, `Pagamento recebido: ${formatBRL(amount)}. Novo saldo pendente: ${formatBRL(Math.max(0, Number(booking.remainingValue) - amount))}`, bookingLogs);
+                setShowPaymentModal(false);
+                setNewPayment({ clientId: '', bookingId: '', amountReceived: '', receivedDate: getRelativeDate(0) });
+                triggerToast("Pagamento registrado com sucesso!");
+            };
+
+            const handleToggleToyStatus = (toyId) => {
+                if (userRole !== 'admin') {
+                    triggerToast("Apenas Administradores podem alterar a manutenção de brinquedos.", "error");
+                    return;
+                }
+                const updated = toys.map(t => {
+                    if (t.id === toyId) {
+                        const nextStatus = t.status === 'MAINTENANCE' ? 'AVAILABLE' : 'MAINTENANCE';
+                        return { ...t, status: nextStatus };
+                    }
+                    return t;
+                });
+                setToys(updated);
+                saveState('jukids_toys_v6', updated);
+                triggerToast("Status do brinquedo atualizado com sucesso!");
+            };
+
+            const handleCancelBooking = (bookingId) => {
+                triggerConfirm(
+                    "Cancelar Reserva",
+                    "Tem certeza que deseja CANCELAR esta reserva de brinquedo?",
+                    () => {
+                        const updated = bookings.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b);
+                        setBookings(updated);
+                        saveState('jukids_bookings_v6', updated);
+                        addLogDirectly(bookingId, "Reserva cancelada pelo usuário.", bookingLogs);
+                        triggerToast("Reserva cancelada com sucesso!");
+                    }
+                );
+            };
+
+            const rankingClients = useMemo(() => {
+                const map = {};
+                bookings.filter(b => b.status !== 'CANCELLED').forEach(b => {
+                    map[b.clientId] = (map[b.clientId] || 0) + 1;
+                });
+                return Object.entries(map).map(([id, count]) => {
+                    const client = clients.find(c => c.id === Number(id));
+                    return {
+                        name: client ? client.fullName : 'Desconhecido',
+                        phone: client ? client.phone : '',
+                        count
+                    };
+                }).sort((a, b) => b.count - a.count).slice(0, 5);
+            }, [bookings, clients]);
+
+            const rankingToys = useMemo(() => {
+                const map = {};
+                bookings.filter(b => b.status !== 'CANCELLED').forEach(b => {
+                    b.toyIds.forEach(id => {
+                        map[id] = (map[id] || 0) + 1;
+                    });
+                });
+                return Object.entries(map).map(([id, count]) => {
+                    const toy = toys.find(t => t.id === Number(id));
+                    return {
+                        name: toy ? toy.name : 'Brinquedo Antigo',
+                        count
+                    };
+                }).sort((a, b) => b.count - a.count).slice(0, 5);
+            }, [bookings, toys]);
+
+            const handleExportCSV = (type) => {
+                let csvContent = "data:text/csv;charset=utf-8,";
+                if (type === 'reservas') {
+                    csvContent += "ID;Cliente;Data;Entrega;Retirada;Valor Frete;Valor Total;Valor Pago;Restante;Status\n";
+                    bookings.forEach(b => {
+                        const clientName = clients.find(c => c.id === b.clientId)?.fullName || '';
+                        csvContent += `${b.id};${clientName};${b.eventDate};${b.deliveryTime};${b.withdrawalTime};${b.shippingValue || 0};${b.totalValue};${b.depositValue};${b.remainingValue};${b.status}\n`;
+                    });
+                } else if (type === 'financeiro') {
+                    csvContent += "ID;Cliente;Data Recebimento;Valor Recebido\n";
+                    finances.forEach(f => {
+                        const clientName = clients.find(c => c.id === f.clientId)?.fullName || '';
+                        csvContent += `${f.id};${clientName};${f.receivedDate};${f.amountReceived}\n`;
+                    });
+                }
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `jukids_export_${type}_${getRelativeDate(0)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                triggerToast("Relatório CSV baixado com sucesso!");
+            };
+
+            const handleExportBackup = () => {
+                const backupData = {
+                    toys,
+                    clients,
+                    bookings,
+                    finances,
+                    logs: bookingLogs
+                };
+                const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(backupData))}`;
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", jsonString);
+                downloadAnchor.setAttribute("download", `jukids_backup_${getRelativeDate(0)}.json`);
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                document.body.removeChild(downloadAnchor);
+                triggerToast("Backup gerado e baixado!");
+            };
+
+            const handleRestoreBackup = (e) => {
+                const fileReader = new FileReader();
+                fileReader.readAsText(e.target.files[0], "UTF-8");
+                fileReader.onload = (event) => {
+                    try {
+                        const parsed = JSON.parse(event.target.result);
+                        if (parsed.toys && parsed.clients && parsed.bookings && parsed.finances) {
+                            setToys(parsed.toys);
+                            setClients(parsed.clients);
+                            setBookings(parsed.bookings);
+                            setFinances(parsed.finances);
+                            if (parsed.logs) setBookingLogs(parsed.logs);
+                            
+                            saveState('jukids_toys_v6', parsed.toys);
+                            saveState('jukids_clients_v6', parsed.clients);
+                            saveState('jukids_bookings_v6', parsed.bookings);
+                            saveState('jukids_finances_v6', parsed.finances);
+                            if (parsed.logs) saveState('jukids_logs_v6', parsed.logs);
+
+                            triggerToast("Backup restaurado e salvo com sucesso!");
+                        } else {
+                            triggerToast("Arquivo de backup inválido.", "error");
+                        }
+                    } catch (err) {
+                        triggerToast("Erro ao ler o arquivo de backup.", "error");
+                    }
+                };
+            };
+
+            const CalendarView = () => {
+                const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+                const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+
+                const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+                const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+                const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay();
+
+                const handlePrevMonth = () => {
+                    if (currentMonth === 0) {
+                        setCurrentMonth(11);
+                        setCurrentYear(prev => prev - 1);
+                    } else {
+                        setCurrentMonth(prev => prev - 1);
+                    }
+                };
+
+                const handleNextMonth = () => {
+                    if (currentMonth === 11) {
+                        setCurrentMonth(0);
+                        setCurrentYear(prev => prev + 1);
+                    } else {
+                        setCurrentMonth(prev => prev + 1);
+                    }
+                };
+
+                const daysArray = [];
+                for (let i = 1; i <= daysInMonth; i++) {
+                    daysArray.push(i);
+                }
+
+                return (
+                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-xl border border-pink-100 dark:border-slate-800">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="brand-title text-xl font-bold text-brand-pink-600 dark:text-brand-pink-300">{monthNames[currentMonth]} {currentYear}</h3>
+                            <div className="flex gap-2">
+                                <button onClick={handlePrevMonth} className="p-2 hover:bg-brand-pink-50 dark:hover:bg-slate-700 rounded-lg text-brand-pink-500"><i className="fa-solid fa-chevron-left"></i></button>
+                                <button onClick={handleNextMonth} className="p-2 hover:bg-brand-pink-50 dark:hover:bg-slate-700 rounded-lg text-brand-pink-500"><i className="fa-solid fa-chevron-right"></i></button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-slate-500 mb-2">
+                            <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SAB</div>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-2">
+                            {Array.from({ length: firstDayIndex }).map((_, idx) => (
+                                <div key={`empty-${idx}`} className="h-12"></div>
+                            ))}
+
+                            {daysArray.map(day => {
+                                const formattedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                                const hasReservations = bookings.some(b => b.eventDate === formattedDate && b.status !== 'CANCELLED');
+                                const dayBookings = bookings.filter(b => b.eventDate === formattedDate && b.status !== 'CANCELLED');
+
+                                return (
+                                    <button
+                                        key={day}
+                                        onClick={() => setSelectedDate({ date: formattedDate, bookings: dayBookings })}
+                                        className={`h-12 relative flex items-center justify-center rounded-xl text-sm font-semibold transition-all ${
+                                            hasReservations 
+                                                ? 'bg-brand-pink-100 text-brand-pink-700 dark:bg-brand-pink-700 dark:text-white border-2 border-brand-pink-300' 
+                                                : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+                                        }`}
+                                    >
+                                        <span>{day}</span>
+                                        {hasReservations && (
+                                            <span className="absolute bottom-1 w-2 h-2 bg-brand-pink-500 rounded-full"></span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {selectedDate && (
+                            <div className="mt-8 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-pink-100 dark:border-slate-700 animate-fadeIn">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h4 className="font-bold text-sm text-brand-pink-600">Reservas para {new Date(selectedDate.date + 'T00:00:00').toLocaleDateString('pt-BR')}</h4>
+                                    <button onClick={() => setSelectedDate(null)} className="text-xs text-slate-500 hover:underline">Fechar</button>
+                                </div>
+                                {selectedDate.bookings.length === 0 ? (
+                                    <p className="text-xs text-slate-500">Nenhum brinquedo reservado neste dia.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {selectedDate.bookings.map(b => {
+                                            const client = clients.find(c => c.id === b.clientId);
+                                            return (
+                                                <div key={b.id} className="p-3 bg-white dark:bg-brand-darkCard rounded-xl shadow-sm border border-pink-50 dark:border-slate-800 flex justify-between items-center">
+                                                    <div>
+                                                        <p className="font-bold text-sm text-brand-blue-700 dark:text-brand-blue-300">{client?.fullName}</p>
+                                                        <p className="text-xs text-slate-500">{b.deliveryTime} às {b.withdrawalTime}</p>
+                                                        <p className="text-xs text-slate-400">Frete: {formatBRL(b.shippingValue || 0)}</p>
+                                                        <p className="text-xs text-brand-pink-600 font-semibold mt-1">
+                                                            {b.toyIds.map(id => toys.find(t => t.id === id)?.name).join(', ')}
+                                                        </p>
+                                                    </div>
+                                                    <span className="px-2 py-1 rounded-full text-xs font-semibold bg-brand-pink-50 text-brand-pink-700">{b.status}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row h-screen overflow-hidden">
+                    
+                    {/* TOAST NOTIFICATION CONTAINER */}
+                    {notification && (
+                        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl transition-all border transform translate-y-0 scale-100 animate-bounce ${
+                            notification.type === 'error' 
+                                ? 'bg-red-50 border-red-200 text-red-800' 
+                                : 'bg-brand-blue-50 border-brand-blue-200 text-brand-blue-800 dark:bg-brand-darkCard dark:text-brand-blue-300 dark:border-brand-blue-900'
+                        }`}>
+                            <i className={`fa-solid ${notification.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'} text-lg`}></i>
+                            <span className="text-sm font-semibold">{notification.message}</span>
+                        </div>
+                    )}
+
+                    {/* CONFIRMATION OVERLAY MODAL */}
+                    {confirmDialog && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
+                            <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl max-w-sm w-full shadow-2xl text-center space-y-4">
+                                <h3 className="brand-title text-lg font-bold text-brand-pink-500">{confirmDialog.title}</h3>
+                                <p className="text-sm text-slate-600 dark:text-slate-300">{confirmDialog.message}</p>
+                                <div className="flex gap-3 justify-center">
+                                    <button 
+                                        onClick={() => setConfirmDialog(null)}
+                                        className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-xl text-xs font-semibold"
+                                    >
+                                        Não, voltar
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            confirmDialog.onConfirm();
+                                            setConfirmDialog(null);
+                                        }}
+                                        className="px-4 py-2 bg-brand-pink-500 hover:bg-brand-pink-600 text-white rounded-xl text-xs font-semibold"
+                                    >
+                                        Sim, confirmar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- BARRA LATERAL (MENU) --- */}
+                    <aside className="w-full md:w-64 bg-white dark:bg-brand-darkCard border-r border-pink-100 dark:border-slate-800 flex flex-col justify-between p-6 z-10">
+                        <div>
+                            {/* Logo */}
+                            <div className="flex items-center gap-3 mb-10">
+                                <div className="w-10 h-10 bg-gradient-to-tr from-brand-blue-300 to-brand-pink-300 rounded-2xl flex items-center justify-center text-white text-xl shadow-lg shadow-pink-100 dark:shadow-none">
+                                    <i className="fa-solid fa-cubes"></i>
+                                </div>
+                                <span className="brand-title text-2xl font-black bg-gradient-to-r from-brand-blue-500 to-brand-pink-500 bg-clip-text text-transparent">JuKids</span>
+                            </div>
+
+                            {/* Navegação */}
+                            <nav className="space-y-2">
+                                <button 
+                                    onClick={() => setCurrentTab('dashboard')} 
+                                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                                        currentTab === 'dashboard' ? 'bg-gradient-to-r from-brand-blue-100 to-brand-pink-100 text-brand-blue-700 dark:from-slate-800 dark:to-slate-700 dark:text-white shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-chart-line text-brand-blue-500"></i> Dashboard
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentTab('bookings')} 
+                                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                                        currentTab === 'bookings' ? 'bg-gradient-to-r from-brand-blue-100 to-brand-pink-100 text-brand-blue-700 dark:from-slate-800 dark:to-slate-700 dark:text-white shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-calendar-check text-brand-pink-500"></i> Reservas
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentTab('clients')} 
+                                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                                        currentTab === 'clients' ? 'bg-gradient-to-r from-brand-blue-100 to-brand-pink-100 text-brand-blue-700 dark:from-slate-800 dark:to-slate-700 dark:text-white shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-users text-brand-blue-500"></i> Clientes
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentTab('toys')} 
+                                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                                        currentTab === 'toys' ? 'bg-gradient-to-r from-brand-blue-100 to-brand-pink-100 text-brand-blue-700 dark:from-slate-800 dark:to-slate-700 dark:text-white shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-shapes text-brand-pink-500"></i> Brinquedos
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentTab('calendar')} 
+                                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                                        currentTab === 'calendar' ? 'bg-gradient-to-r from-brand-blue-100 to-brand-pink-100 text-brand-blue-700 dark:from-slate-800 dark:to-slate-700 dark:text-white shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-calendar-days text-brand-blue-500"></i> Agenda Mensal
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentTab('finance')} 
+                                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                                        currentTab === 'finance' ? 'bg-gradient-to-r from-brand-blue-100 to-brand-pink-100 text-brand-blue-700 dark:from-slate-800 dark:to-slate-700 dark:text-white shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-receipt text-brand-pink-500"></i> Financeiro
+                                </button>
+                                <button 
+                                    onClick={() => setCurrentTab('reports')} 
+                                    className={`w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+                                        currentTab === 'reports' ? 'bg-gradient-to-r from-brand-blue-100 to-brand-pink-100 text-brand-blue-700 dark:from-slate-800 dark:to-slate-700 dark:text-white shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-file-invoice-dollar text-brand-blue-500"></i> Relatórios
+                                </button>
+                            </nav>
+                        </div>
+
+                        {/* Configurações Rápidas de Nível de Acesso */}
+                        <div className="border-t border-pink-50 dark:border-slate-800 pt-6 space-y-3 text-xs text-slate-500">
+                            <div className="flex justify-between items-center">
+                                <span>Acesso:</span>
+                                <select 
+                                    value={userRole} 
+                                    onChange={(e) => setUserRole(e.target.value)}
+                                    className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white rounded px-2 py-1 outline-none cursor-pointer"
+                                >
+                                    <option value="admin">Administrador</option>
+                                    <option value="employee">Funcionário</option>
+                                </select>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span>Tema:</span>
+                                <button onClick={() => setDarkMode(!darkMode)} className="text-lg text-brand-pink-500">
+                                    {darkMode ? <i className="fa-solid fa-toggle-on text-brand-pink-500"></i> : <i className="fa-solid fa-toggle-off"></i>}
+                                </button>
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* --- CONTEÚDO PRINCIPAL --- */}
+                    <main className="flex-1 overflow-y-auto p-8 relative">
+                        
+                        {/* --- TOP BAR --- */}
+                        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                <div className="relative w-full md:w-80">
+                                    <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Pesquise por nome, telefone, brinquedo..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full pl-11 pr-4 py-3 bg-white dark:bg-brand-darkCard border border-pink-100 dark:border-slate-800 rounded-2xl outline-none focus:border-brand-blue-400 dark:focus:border-brand-blue-500 text-sm shadow-sm transition-all"
+                                    />
+                                </div>
+                                <div className="flex gap-1 bg-white dark:bg-brand-darkCard border border-pink-50 dark:border-slate-800 rounded-2xl p-1 shadow-sm">
+                                    <button onClick={() => setTimeFilter('day')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${timeFilter === 'day' ? 'bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white' : 'text-slate-500'}`}>Dia</button>
+                                    <button onClick={() => setTimeFilter('week')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${timeFilter === 'week' ? 'bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white' : 'text-slate-500'}`}>Semana</button>
+                                    <button onClick={() => setTimeFilter('month')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${timeFilter === 'month' ? 'bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white' : 'text-slate-500'}`}>Mês</button>
+                                    <button onClick={() => setTimeFilter('year')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${timeFilter === 'year' ? 'bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white' : 'text-slate-500'}`}>Ano</button>
+                                    <button onClick={() => setTimeFilter('all')} className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${timeFilter === 'all' ? 'bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white' : 'text-slate-500'}`}>Tudo</button>
+                                </div>
+                            </div>
+
+                            {/* Ações Rápidas */}
+                            <div className="flex gap-3 w-full md:w-auto justify-end">
+                                <button onClick={() => setShowClientModal(true)} className="flex items-center gap-2 px-4 py-3 bg-brand-pink-100 hover:bg-brand-pink-200 text-brand-pink-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white rounded-2xl text-sm font-bold transition-all">
+                                    <i className="fa-solid fa-user-plus"></i> Novo Cliente
+                                </button>
+                                <button onClick={() => setShowBookingModal(true)} className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 hover:from-brand-blue-500 hover:to-brand-pink-500 text-white rounded-2xl text-sm font-bold shadow-lg shadow-pink-100 dark:shadow-none transition-all">
+                                    <i className="fa-solid fa-calendar-plus"></i> Nova Reserva
+                                </button>
+                            </div>
+                        </header>
+
+                        {/* --- ALERTA INTELIGENTE DO DIA --- */}
+                        {(metrics.todayEvents > 0 || metrics.tomorrowEvents > 0) && (
+                            <div className="mb-6 p-4 bg-gradient-to-r from-brand-blue-50 to-brand-pink-50 dark:from-slate-900/40 dark:to-pink-950/20 border border-brand-pink-100 dark:border-pink-900/50 rounded-3xl flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3 text-brand-pink-700 dark:text-brand-pink-300">
+                                    <i className="fa-solid fa-bell text-xl animate-bounce"></i>
+                                    <p className="text-sm font-semibold">
+                                        Lembrete Inteligente: Você tem <strong>{metrics.todayEvents} eventos hoje</strong> e <strong>{metrics.tomorrowEvents} eventos amanhã</strong>!
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- TAB: DASHBOARD --- */}
+                        {currentTab === 'dashboard' && (
+                            <div className="space-y-8 animate-fadeIn">
+                                {/* Grade de Métricas Chave */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="text-sm text-slate-500 font-semibold">Eventos Ativos</span>
+                                            <div className="w-8 h-8 rounded-full bg-brand-pink-50 dark:bg-brand-900/30 text-brand-pink-500 flex items-center justify-center"><i className="fa-solid fa-calendar"></i></div>
+                                        </div>
+                                        <h3 className="text-3xl font-bold">{metrics.eventsCount}</h3>
+                                        <p className="text-xs text-slate-400 mt-1">Reservas ativas no período selecionado</p>
+                                    </div>
+
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="text-sm text-slate-500 font-semibold">Arrecadado</span>
+                                            <div className="w-8 h-8 rounded-full bg-brand-blue-50 dark:bg-brand-900/30 text-brand-blue-500 flex items-center justify-center"><i className="fa-solid fa-cash-register"></i></div>
+                                        </div>
+                                        <h3 className="text-3xl font-bold text-brand-blue-500">{formatBRL(metrics.totalIncome)}</h3>
+                                        <p className="text-xs text-slate-400 mt-1">Faturamento real registrado (incluindo fretes pagos)</p>
+                                    </div>
+
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="text-sm text-slate-500 font-semibold">Pendências</span>
+                                            <div className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/30 text-red-500 flex items-center justify-center"><i className="fa-solid fa-exclamation-triangle"></i></div>
+                                        </div>
+                                        <h3 className={`text-3xl font-bold ${metrics.totalPending > 0 ? 'text-red-500 animate-pulse' : 'text-slate-800 dark:text-slate-100'}`}>
+                                            {formatBRL(metrics.totalPending)}
+                                        </h3>
+                                        <p className="text-xs text-slate-400 mt-1">Valores restantes pendentes (locação + fretes restantes)</p>
+                                    </div>
+
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <span className="text-sm text-slate-500 font-semibold">Lucro Estimado</span>
+                                            <div className="w-8 h-8 rounded-full bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 flex items-center justify-center"><i className="fa-solid fa-wallet"></i></div>
+                                        </div>
+                                        <h3 className="text-3xl font-bold text-cyan-500">{formatBRL(metrics.profit)}</h3>
+                                        <p className="text-xs text-slate-400 mt-1">Margem operacional líquida</p>
+                                    </div>
+                                </div>
+
+                                {/* Seção dos Gráficos Interativos */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <h3 className="brand-title text-lg font-bold mb-6 text-brand-blue-700 dark:text-brand-blue-300">Evolução do Faturamento Mensal</h3>
+                                        <div className="h-64 flex items-end gap-6 relative">
+                                            {/* Gráfico SVG Dinâmico */}
+                                            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
+                                                <path 
+                                                    d="M 10 180 Q 100 120 200 90 T 390 40" 
+                                                    fill="none" 
+                                                    stroke="#38bdf8" 
+                                                    strokeWidth="4" 
+                                                />
+                                                <path 
+                                                    d="M 10 180 Q 100 120 200 90 T 390 40 L 390 200 L 10 200 Z" 
+                                                    fill="url(#grad)" 
+                                                    opacity="0.15" 
+                                                />
+                                                <defs>
+                                                    <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                                        <stop offset="0%" stopColor="#f472b6" />
+                                                        <stop offset="100%" stopColor="#ffffff" />
+                                                    </linearGradient>
+                                                </defs>
+                                            </svg>
+                                            <div className="absolute left-2 top-2 text-xs text-brand-pink-400">Pico de Demanda</div>
+                                            <div className="absolute right-2 bottom-2 text-xs text-brand-blue-600 font-bold">Visualização Gráfica IA</div>
+                                        </div>
+                                        <p className="text-xs text-center text-slate-400 mt-4">Simulação inteligente em tons Azul Bebê e Rosa Bebê</p>
+                                    </div>
+
+                                    {/* Gráfico de Barras dos Brinquedos mais Alugados */}
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <h3 className="brand-title text-lg font-bold mb-6 text-brand-pink-700 dark:text-brand-pink-300">Mais Alugados (Ranking Geral)</h3>
+                                        <div className="space-y-4">
+                                            {rankingToys.length === 0 ? (
+                                                <p className="text-sm text-slate-500">Sem dados operacionais de aluguel no momento.</p>
+                                            ) : (
+                                                rankingToys.map((toy, idx) => {
+                                                    const percentages = [100, 75, 55, 35, 15]; // Escalonamento estético das barras
+                                                    const barColor = idx % 2 === 0 ? 'bg-brand-blue-400' : 'bg-brand-pink-400';
+                                                    return (
+                                                        <div key={idx} className="space-y-1">
+                                                            <div className="flex justify-between text-xs font-semibold">
+                                                                <span>{toy.name}</span>
+                                                                <span className="text-brand-pink-600">{toy.count} locações</span>
+                                                            </div>
+                                                            <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                                <div 
+                                                                    className={`h-full ${barColor} rounded-full transition-all duration-1000`} 
+                                                                    style={{ width: `${percentages[idx] || 10}%` }}
+                                                                ></div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Grade de Lista de Alertas / Eventos do dia */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800 lg:col-span-2">
+                                        <h3 className="brand-title text-lg font-bold mb-4 text-brand-blue-700 dark:text-brand-blue-300">Próximos Eventos do Dia / Semana</h3>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm text-left">
+                                                <thead>
+                                                    <tr className="border-b border-pink-100 dark:border-slate-800 text-slate-400 text-xs">
+                                                        <th className="py-3">Cliente</th>
+                                                        <th className="py-3">Data</th>
+                                                        <th className="py-3">Horário</th>
+                                                        <th className="py-3">Frete</th>
+                                                        <th className="py-3">Valor Total</th>
+                                                        <th className="py-3">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {filteredBookings.slice(0, 5).map(b => {
+                                                        const client = clients.find(c => c.id === b.clientId);
+                                                        return (
+                                                            <tr key={b.id} className="border-b border-pink-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                                <td className="py-4 font-bold">{client?.fullName || "Cliente não carregado"}</td>
+                                                                <td className="py-4">{new Date(b.eventDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                                                                <td className="py-4">{b.deliveryTime} às {b.withdrawalTime}</td>
+                                                                <td className="py-4 font-semibold text-slate-500">{formatBRL(b.shippingValue || 0)}</td>
+                                                                <td className="py-4 font-bold text-brand-blue-700 dark:text-brand-blue-300">{formatBRL(b.totalValue)}</td>
+                                                                <td className="py-4">
+                                                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                                                        b.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-brand-pink-50 text-brand-pink-700'
+                                                                    }`}>{b.status}</span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* Alertas Inteligentes */}
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <h3 className="brand-title text-lg font-bold mb-4 text-brand-pink-700 dark:text-brand-pink-300">Alertas e Monitoramento IA</h3>
+                                        <div className="space-y-4">
+                                            {/* Brinquedos em Manutenção */}
+                                            {toys.filter(t => t.status === 'MAINTENANCE').map(toy => (
+                                                <div key={toy.id} className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900 rounded-2xl flex items-start gap-3 animate-pulse">
+                                                    <i className="fa-solid fa-wrench text-red-500 mt-1"></i>
+                                                    <div>
+                                                        <p className="text-xs font-bold text-red-700 dark:text-red-300">Brinquedo Suspenso</p>
+                                                        <p className="text-xs text-red-600 dark:text-red-400">"{toy.name}" em manutenção. Novas reservas indisponíveis até a liberação.</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* Clientes com Saldo em Aberto */}
+                                            {bookings.filter(b => b.status !== 'CANCELLED' && Number(b.remainingValue) > 0).map(booking => {
+                                                const client = clients.find(c => c.id === booking.clientId);
+                                                return (
+                                                    <div key={booking.id} className="p-3 bg-brand-pink-50 dark:bg-pink-950/20 border border-brand-pink-100 dark:border-brand-pink-900 rounded-2xl flex items-start gap-3">
+                                                        <i className="fa-solid fa-money-bill-wave text-brand-pink-500 mt-1"></i>
+                                                        <div>
+                                                            <p className="text-xs font-bold text-brand-pink-700 dark:text-brand-pink-300">Cobrança de Pendência</p>
+                                                            <p className="text-xs text-brand-pink-600 dark:text-brand-pink-400"><strong>{client?.fullName}</strong> possui saldo devedor de {formatBRL(booking.remainingValue)} para o evento.</p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- TAB: RESERVAS --- */}
+                        {currentTab === 'bookings' && (
+                            <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-xl border border-pink-50 dark:border-slate-800 animate-fadeIn">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="brand-title text-xl font-bold text-brand-blue-700 dark:text-brand-blue-300">Listagem Geral de Reservas</h3>
+                                    <button onClick={() => setShowBookingModal(true)} className="px-4 py-2 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 hover:from-brand-blue-500 hover:to-brand-pink-500 text-white rounded-xl text-xs font-bold"><i className="fa-solid fa-plus"></i> Criar Reserva</button>
+                                </div>
+
+                                <div className="overflow-x-auto hidden md:block">
+                                    <table className="w-full text-sm text-left">
+                                        <thead>
+                                            <tr className="border-b border-pink-100 dark:border-slate-800 text-slate-400 text-xs">
+                                                <th className="py-3">Cliente</th>
+                                                <th className="py-3">Data Evento</th>
+                                                <th className="py-3">Período</th>
+                                                <th className="py-3">Brinquedos</th>
+                                                <th className="py-3">Frete</th>
+                                                <th className="py-3">Valor Total</th>
+                                                <th className="py-3">Sinal Pago</th>
+                                                <th className="py-3">Restante</th>
+                                                <th className="py-3">Status</th>
+                                                <th className="py-3 text-right">Ações / WhatsApp</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredBookings.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="10" className="py-8 text-center text-slate-400">Nenhuma reserva localizada.</td>
+                                                </tr>
+                                            ) : (
+                                                filteredBookings.map(b => {
+                                                    const client = clients.find(c => c.id === b.clientId);
+                                                    return (
+                                                        <tr key={b.id} className="border-b border-pink-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                            <td className="py-4">
+                                                                <p className="font-bold">{client?.fullName || "Cliente Desconhecido"}</p>
+                                                                <p className="text-xs text-slate-400">{client?.phone}</p>
+                                                            </td>
+                                                            <td className="py-4">{new Date(b.eventDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                                                            <td className="py-4 text-xs">{b.deliveryTime} às {b.withdrawalTime}</td>
+                                                            <td className="py-4 text-xs font-semibold text-brand-pink-600">
+                                                                {b.toyIds.map(id => toys.find(t => t.id === id)?.name).join(', ')}
+                                                            </td>
+                                                            <td className="py-4 text-slate-500 font-semibold">{formatBRL(b.shippingValue || 0)}</td>
+                                                            <td className="py-4 font-bold">{formatBRL(b.totalValue)}</td>
+                                                            <td className="py-4 text-green-600 font-semibold">{formatBRL(b.depositValue)}</td>
+                                                            <td className="py-4 text-brand-pink-600 font-semibold">{formatBRL(b.remainingValue)}</td>
+                                                            <td className="py-4">
+                                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                                                    b.status === 'PAID' ? 'bg-green-100 text-green-700' :
+                                                                    b.status === 'DEPOSIT_PAID' ? 'bg-brand-blue-100 text-brand-blue-700' :
+                                                                    b.status === 'CANCELLED' ? 'bg-slate-100 text-slate-500' : 'bg-brand-pink-100 text-brand-pink-700'
+                                                                }`}>{b.status}</span>
+                                                            </td>
+                                                            <td className="py-4 text-right space-x-1 flex justify-end items-center">
+                                                                {b.status !== 'CANCELLED' && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setEditingBookingId(b.id);
+                                                                            setNewBooking({
+                                                                                clientName: client?.fullName || '',
+                                                                                clientPhone: client?.phone || '',
+                                                                                eventDate: b.eventDate,
+                                                                                deliveryTime: b.deliveryTime,
+                                                                                withdrawalTime: b.withdrawalTime,
+                                                                                selectedToys: b.toyIds.map(String),
+                                                                                shippingValue: String(b.shippingValue || ''),
+                                                                                depositValue: String(b.depositValue || ''),
+                                                                                notes: b.notes || ''
+                                                                            });
+                                                                            setBookingConflict(null);
+                                                                            setShowBookingModal(true);
+                                                                        }}
+                                                                        className="p-1.5 hover:bg-brand-blue-50 dark:hover:bg-slate-700 rounded-lg text-brand-blue-600 text-xs flex items-center gap-1"
+                                                                        title="Editar Reserva"
+                                                                    >
+                                                                        <i className="fa-solid fa-pen"></i> Editar
+                                                                    </button>
+                                                                )}
+
+                                                                {b.status !== 'CANCELLED' && b.status !== 'PAID' && (
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setNewPayment(prev => ({ ...prev, bookingId: b.id, clientId: b.clientId, amountReceived: b.remainingValue }));
+                                                                            setShowPaymentModal(true);
+                                                                        }}
+                                                                        className="p-1.5 hover:bg-green-50 dark:hover:bg-slate-700 rounded-lg text-green-600 text-xs flex items-center gap-1"
+                                                                        title="Registrar Recebimento"
+                                                                    >
+                                                                        <i className="fa-solid fa-dollar-sign"></i> Pagar
+                                                                    </button>
+                                                                )}
+                                                                
+                                                                {/* Botão de Envio de Confirmação Corrigido (WhatsApp) */}
+                                                                <button 
+                                                                    onClick={() => handleWhatsAppSend(client?.phone, generateConfirmationMessage(b))}
+                                                                    className="p-1.5 hover:bg-green-100 dark:hover:bg-slate-700 rounded-lg text-green-500 text-xs flex items-center gap-1"
+                                                                    title="Confirmar Reserva (WhatsApp)"
+                                                                >
+                                                                    <i className="fa-brands fa-whatsapp text-sm"></i> Confirmar
+                                                                </button>
+
+                                                                {/* Cobrança do Valor Restante (WhatsApp) */}
+                                                                {Number(b.remainingValue) > 0 && b.status !== 'CANCELLED' && (
+                                                                    <button 
+                                                                        onClick={() => handleWhatsAppSend(client?.phone, generateBillingMessage(b))}
+                                                                        className="p-1.5 hover:bg-yellow-50 dark:hover:bg-slate-700 rounded-lg text-yellow-600 text-xs flex items-center gap-1"
+                                                                        title="Cobrar Restante (WhatsApp)"
+                                                                    >
+                                                                        <i className="fa-solid fa-comment-dollar"></i> Cobrar
+                                                                    </button>
+                                                                )}
+
+                                                                {b.status !== 'CANCELLED' && (
+                                                                    <button onClick={() => handleCancelBooking(b.id)} className="p-1.5 hover:bg-red-50 dark:hover:bg-slate-700 rounded-lg text-red-500 text-xs" title="Cancelar Reserva">
+                                                                        <i className="fa-solid fa-ban"></i>
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* --- VERSÃO MOBILE EM CARDS (telas pequenas) --- */}
+                                <div className="md:hidden space-y-4">
+                                    {filteredBookings.length === 0 ? (
+                                        <p className="py-8 text-center text-slate-400 text-sm">Nenhuma reserva localizada.</p>
+                                    ) : (
+                                        filteredBookings.map(b => {
+                                            const client = clients.find(c => c.id === b.clientId);
+                                            return (
+                                                <div key={b.id} className="p-4 rounded-2xl border border-pink-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 space-y-3">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <p className="font-bold">{client?.fullName || "Cliente Desconhecido"}</p>
+                                                            <p className="text-xs text-slate-400">{client?.phone}</p>
+                                                        </div>
+                                                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap ${
+                                                            b.status === 'PAID' ? 'bg-green-100 text-green-700' :
+                                                            b.status === 'DEPOSIT_PAID' ? 'bg-brand-blue-100 text-brand-blue-700' :
+                                                            b.status === 'CANCELLED' ? 'bg-slate-100 text-slate-500' : 'bg-brand-pink-100 text-brand-pink-700'
+                                                        }`}>{b.status}</span>
+                                                    </div>
+
+                                                    <div className="text-xs space-y-1 border-t border-pink-100 dark:border-slate-700 pt-3">
+                                                        <p><span className="text-slate-400">Data:</span> <span className="font-semibold">{new Date(b.eventDate + 'T00:00:00').toLocaleDateString('pt-BR')}</span> · {b.deliveryTime} às {b.withdrawalTime}</p>
+                                                        <p><span className="text-slate-400">Brinquedos:</span> <span className="font-semibold text-brand-pink-600">{b.toyIds.map(id => toys.find(t => t.id === id)?.name).join(', ')}</span></p>
+                                                        <div className="grid grid-cols-3 gap-2 pt-2">
+                                                            <div><span className="text-slate-400 block">Total</span><span className="font-bold">{formatBRL(b.totalValue)}</span></div>
+                                                            <div><span className="text-slate-400 block">Sinal</span><span className="font-bold text-green-600">{formatBRL(b.depositValue)}</span></div>
+                                                            <div><span className="text-slate-400 block">Restante</span><span className="font-bold text-brand-pink-600">{formatBRL(b.remainingValue)}</span></div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-2 border-t border-pink-100 dark:border-slate-700 pt-3">
+                                                        {b.status !== 'CANCELLED' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingBookingId(b.id);
+                                                                    setNewBooking({
+                                                                        clientName: client?.fullName || '',
+                                                                        clientPhone: client?.phone || '',
+                                                                        eventDate: b.eventDate,
+                                                                        deliveryTime: b.deliveryTime,
+                                                                        withdrawalTime: b.withdrawalTime,
+                                                                        selectedToys: b.toyIds.map(String),
+                                                                        shippingValue: String(b.shippingValue || ''),
+                                                                        depositValue: String(b.depositValue || ''),
+                                                                        notes: b.notes || ''
+                                                                    });
+                                                                    setBookingConflict(null);
+                                                                    setShowBookingModal(true);
+                                                                }}
+                                                                className="px-3 py-2 bg-brand-blue-100 dark:bg-slate-700 rounded-xl text-brand-blue-600 dark:text-brand-blue-300 text-xs font-bold flex items-center gap-1"
+                                                            >
+                                                                <i className="fa-solid fa-pen"></i> Editar
+                                                            </button>
+                                                        )}
+                                                        {b.status !== 'CANCELLED' && b.status !== 'PAID' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setNewPayment(prev => ({ ...prev, bookingId: b.id, clientId: b.clientId, amountReceived: b.remainingValue }));
+                                                                    setShowPaymentModal(true);
+                                                                }}
+                                                                className="px-3 py-2 bg-green-100 dark:bg-slate-700 rounded-xl text-green-700 dark:text-green-400 text-xs font-bold flex items-center gap-1"
+                                                            >
+                                                                <i className="fa-solid fa-dollar-sign"></i> Pagar
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleWhatsAppSend(client?.phone, generateConfirmationMessage(b))}
+                                                            className="px-3 py-2 bg-green-50 dark:bg-slate-700 rounded-xl text-green-600 dark:text-green-400 text-xs font-bold flex items-center gap-1"
+                                                        >
+                                                            <i className="fa-brands fa-whatsapp"></i> Confirmar
+                                                        </button>
+                                                        {Number(b.remainingValue) > 0 && b.status !== 'CANCELLED' && (
+                                                            <button
+                                                                onClick={() => handleWhatsAppSend(client?.phone, generateBillingMessage(b))}
+                                                                className="px-3 py-2 bg-yellow-50 dark:bg-slate-700 rounded-xl text-yellow-600 dark:text-yellow-400 text-xs font-bold flex items-center gap-1"
+                                                            >
+                                                                <i className="fa-solid fa-comment-dollar"></i> Cobrar
+                                                            </button>
+                                                        )}
+                                                        {b.status !== 'CANCELLED' && (
+                                                            <button
+                                                                onClick={() => handleCancelBooking(b.id)}
+                                                                className="px-3 py-2 bg-red-50 dark:bg-slate-700 rounded-xl text-red-500 text-xs font-bold flex items-center gap-1"
+                                                            >
+                                                                <i className="fa-solid fa-ban"></i> Cancelar
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {currentTab === 'clients' && (
+                            <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-xl border border-pink-50 dark:border-slate-800 animate-fadeIn">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="brand-title text-xl font-bold text-brand-blue-700 dark:text-brand-blue-300">Base de Clientes Cadastrados</h3>
+                                    <button onClick={() => setShowClientModal(true)} className="px-4 py-2 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 hover:from-brand-blue-500 hover:to-brand-pink-500 text-white rounded-xl text-xs font-bold"><i className="fa-solid fa-plus"></i> Novo Cliente</button>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead>
+                                            <tr className="border-b border-pink-100 dark:border-slate-800 text-slate-400 text-xs">
+                                                <th className="py-3">Nome Completo</th>
+                                                <th className="py-3">Telefone</th>
+                                                <th className="py-3">Qtd. Locações</th>
+                                                <th className="py-3">Observações</th>
+                                                <th className="py-3 text-right">Contato Direto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {clients.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="5" className="py-8 text-center text-slate-400">Nenhum cliente salvo até o momento. Comece criando uma reserva ou clique em "Novo Cliente"!</td>
+                                                </tr>
+                                            ) : (
+                                                clients.map(c => {
+                                                    const customerBookingsCount = bookings.filter(b => b.clientId === c.id && b.status !== 'CANCELLED').length;
+                                                    return (
+                                                        <tr key={c.id} className="border-b border-pink-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                            <td className="py-4 font-bold">{c.fullName}</td>
+                                                            <td className="py-4">{c.phone}</td>
+                                                            <td className="py-4 font-bold text-center">{customerBookingsCount} x</td>
+                                                            <td className="py-4 text-xs text-slate-500">{c.notes || "Sem observações adicionais."}</td>
+                                                            <td className="py-4 text-right font-bold">
+                                                                <button 
+                                                                    onClick={() => handleWhatsAppSend(c.phone, `Oi, ${c.fullName?.split(' ')[0] || ''}! 🎈💕\n\nQue bom falar com você! Passando aqui só pra dizer que estamos sempre à disposição pra deixar a festa do seu pequeno ainda mais especial. 🎉\n\nSe tiver qualquer dúvida ou quiser dar uma olhada nos brinquedos disponíveis, é só chamar por aqui, combinado? 😊🧸`)}
+                                                                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-xl text-xs font-bold transition-all"
+                                                                >
+                                                                    <i className="fa-brands fa-whatsapp text-sm"></i> WhatsApp
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- TAB: BRINQUEDOS --- */}
+                        {currentTab === 'toys' && (
+                            <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-xl border border-pink-50 dark:border-slate-800 animate-fadeIn">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="brand-title text-xl font-bold text-brand-pink-700 dark:text-brand-pink-300">Inventário de Brinquedos</h3>
+                                    <button onClick={() => setShowToyModal(true)} className="px-4 py-2 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 hover:from-brand-blue-500 hover:to-brand-pink-500 text-white rounded-xl text-xs font-bold"><i className="fa-solid fa-plus"></i> Novo Brinquedo</button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {toys.map(toy => {
+                                        const isMaintenance = toy.status === 'MAINTENANCE';
+                                        return (
+                                            <div key={toy.id} className="p-6 bg-slate-50 dark:bg-brand-darkCard rounded-3xl border border-pink-100 dark:border-slate-800 flex flex-col justify-between h-48 relative overflow-hidden">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 className="font-bold text-lg text-brand-blue-800 dark:text-brand-blue-300">{toy.name}</h4>
+                                                        <p className="text-xl font-black text-brand-pink-500 mt-1">{formatBRL(toy.rentalValue)}</p>
+                                                    </div>
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                                                        isMaintenance ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                                                    }`}>{toy.status}</span>
+                                                </div>
+
+                                                <div className="flex justify-between items-center mt-6">
+                                                    <span className="text-xs text-slate-400">Status Operacional</span>
+                                                    <button 
+                                                        onClick={() => handleToggleToyStatus(toy.id)}
+                                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                                                            isMaintenance ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-red-100 hover:bg-red-200 text-red-700'
+                                                        }`}
+                                                    >
+                                                        {isMaintenance ? 'Liberar Brinquedo' : 'Manutenção'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- TAB: AGENDA MENSAL --- */}
+                        {currentTab === 'calendar' && (
+                            <div className="space-y-6 animate-fadeIn">
+                                <h3 className="brand-title text-2xl font-bold mb-4 text-brand-pink-600">Agenda Operacional Mensal</h3>
+                                <CalendarView />
+                            </div>
+                        )}
+
+                        {/* --- TAB: FINANCEIRO --- */}
+                        {currentTab === 'finance' && (
+                            <div className="space-y-8 animate-fadeIn">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <span className="text-xs text-slate-400 font-bold">ARRECADADO NO MÊS</span>
+                                        <h3 className="text-3xl font-bold text-brand-blue-500 mt-2">{formatBRL(metrics.totalIncome)}</h3>
+                                    </div>
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <span className="text-xs text-slate-400 font-bold">VALORES RESTANTES PENDENTES</span>
+                                        <h3 className="text-3xl font-bold text-brand-pink-500 mt-2">{formatBRL(metrics.totalPending)}</h3>
+                                    </div>
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-md border border-pink-50 dark:border-slate-800">
+                                        <span className="text-xs text-slate-400 font-bold">LUCRO TOTAL OPERACIONAL</span>
+                                        <h3 className="text-3xl font-bold text-cyan-500 mt-2">{formatBRL(metrics.profit)}</h3>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-xl border border-pink-50 dark:border-slate-800">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="brand-title text-xl font-bold text-brand-blue-700 dark:text-brand-blue-300">Histórico Geral de Entradas / Recebimentos</h3>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleExportCSV('financeiro')} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl text-xs font-bold transition-all text-brand-blue-600">Exportar Relatório</button>
+                                            <button onClick={() => setShowPaymentModal(true)} className="px-4 py-2 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white rounded-xl text-xs font-bold"><i className="fa-solid fa-plus"></i> Registrar Recebimento</button>
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm text-left">
+                                            <thead>
+                                                <tr className="border-b border-pink-100 dark:border-slate-800 text-slate-400 text-xs">
+                                                    <th className="py-3">Cliente</th>
+                                                    <th className="py-3">Reserva Associada</th>
+                                                    <th className="py-3">Data Recebimento</th>
+                                                    <th className="py-3">Valor Recebido</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredFinances.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="4" className="py-8 text-center text-slate-400">Nenhum pagamento registrado no período.</td>
+                                                    </tr>
+                                                ) : (
+                                                    filteredFinances.map(f => {
+                                                        const client = clients.find(c => c.id === f.clientId);
+                                                        return (
+                                                            <tr key={f.id} className="border-b border-pink-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                                                                <td className="py-4 font-bold">{client?.fullName || "Cliente Desconhecido"}</td>
+                                                                <td className="py-4 text-xs text-slate-400">ID Reserva #{f.bookingId || "Avulso"}</td>
+                                                                <td className="py-4">{new Date(f.receivedDate + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                                                                <td className="py-4 text-green-600 font-bold">+{formatBRL(f.amountReceived)}</td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- TAB: RELATÓRIOS --- */}
+                        {currentTab === 'reports' && (
+                            <div className="space-y-8 animate-fadeIn">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                    <h3 className="brand-title text-2xl font-bold text-brand-pink-600">Central de Inteligência de Relatórios</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        <button onClick={() => handleExportCSV('reservas')} className="px-4 py-2 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white rounded-xl text-xs font-bold shadow-md"><i className="fa-solid fa-file-excel"></i> Exportar Base Completa</button>
+                                        <button onClick={handleExportBackup} className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold shadow-md"><i className="fa-solid fa-database"></i> Fazer Backup</button>
+                                        <label className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer flex items-center gap-2">
+                                            <i className="fa-solid fa-upload"></i> Restaurar Backup
+                                            <input type="file" accept=".json" onChange={handleRestoreBackup} className="hidden" />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Ranking Clientes VIP */}
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-xl border border-pink-50 dark:border-slate-800">
+                                        <h4 className="brand-title text-lg font-bold mb-4 text-brand-blue-700 dark:text-brand-blue-300">Top Clientes VIP (Quem mais alugou)</h4>
+                                        <div className="space-y-4">
+                                            {rankingClients.length === 0 ? (
+                                                <p className="text-sm text-slate-400">Nenhuma reserva ativa registrada ainda.</p>
+                                            ) : (
+                                                rankingClients.map((client, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-pink-50 dark:border-slate-800">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="w-6 h-6 rounded-full bg-brand-pink-400 text-white flex items-center justify-center text-xs font-bold">{idx + 1}</span>
+                                                            <div>
+                                                                <p className="font-bold text-sm">{client.name}</p>
+                                                                <p className="text-xs text-slate-400">{client.phone}</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="font-bold text-brand-blue-600">{client.count} reservas</span>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Métricas Inteligentes Calculated */}
+                                    <div className="bg-white dark:bg-brand-darkCard p-6 rounded-3xl shadow-xl border border-pink-50 dark:border-slate-800">
+                                        <h4 className="brand-title text-lg font-bold mb-4 text-brand-pink-700 dark:text-brand-pink-300">Estatísticas de Rentabilidade</h4>
+                                        <div className="space-y-4 text-sm">
+                                            <div className="flex justify-between border-b border-slate-50 dark:border-slate-800 pb-2">
+                                                <span className="text-slate-500 font-semibold">Eventos Totais Ativos</span>
+                                                <span className="font-bold">{bookings.filter(b => b.status !== 'CANCELLED').length} locações</span>
+                                            </div>
+                                            <div className="flex justify-between border-b border-slate-50 dark:border-slate-800 pb-2">
+                                                <span className="text-slate-500 font-semibold">Valor Médio da Locação (Ticket Médio)</span>
+                                                <span className="font-bold text-brand-blue-600">
+                                                    {formatBRL(bookings.length > 0 ? bookings.reduce((acc, b) => acc + Number(b.totalValue), 0) / bookings.length : 0)}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between border-b border-slate-50 dark:border-slate-800 pb-2">
+                                                <span className="text-slate-500 font-semibold">Percentual de Recebimentos Concluídos</span>
+                                                <span className="font-bold text-brand-pink-600">
+                                                    {bookings.reduce((acc, b) => acc + Number(b.totalValue), 0) > 0 ? Math.round((finances.reduce((acc, f) => acc + Number(f.amountReceived), 0) / bookings.reduce((acc, b) => acc + Number(b.totalValue), 0)) * 100) : 0}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* --- MODAL: CRIAR RESERVA --- */}
+                    {showBookingModal && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="bg-white dark:bg-brand-darkCard p-8 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto space-y-6 shadow-2xl border border-pink-100 dark:border-slate-800">
+                                <div className="flex justify-between items-center border-b border-pink-100 dark:border-slate-800 pb-4">
+                                    <h3 className="brand-title text-xl font-bold text-brand-blue-600 dark:text-brand-blue-300">{editingBookingId ? 'Editar Reserva' : 'Formular Nova Reserva'}</h3>
+                                    <button onClick={() => {
+                                        setShowBookingModal(false);
+                                        setBookingConflict(null);
+                                        setEditingBookingId(null);
+                                        setNewBooking({ clientName: '', clientPhone: '', eventDate: getRelativeDate(0), deliveryTime: '08:00', withdrawalTime: '18:00', selectedToys: [], shippingValue: '', depositValue: '', notes: '' });
+                                    }} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-brand-pink-500"><i className="fa-solid fa-times text-lg"></i></button>
+                                </div>
+
+                                <form onSubmit={editingBookingId ? handleUpdateBooking : handleAddBooking} className="space-y-4 text-sm">
+                                    {/* Dados do Cliente */}
+                                    <div className="space-y-3 p-4 bg-brand-blue-50/50 dark:bg-slate-800/40 rounded-2xl border border-brand-blue-100 dark:border-slate-800">
+                                        <h4 className="font-bold text-xs text-brand-blue-600 uppercase tracking-wider mb-2">Dados do Cliente</h4>
+                                        <div className="space-y-1 relative">
+                                            <label className="font-semibold text-xs block">Nome do Cliente</label>
+                                            <input 
+                                                type="text" 
+                                                required
+                                                placeholder="Digite o nome completo..."
+                                                value={newBooking.clientName}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setNewBooking(prev => ({ ...prev, clientName: val }));
+                                                }}
+                                                className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border border-brand-blue-200 dark:border-slate-700 outline-none"
+                                            />
+                                            {/* Autocomplete Dinâmico */}
+                                            {newBooking.clientName.trim().length > 0 && clients.filter(c => c.fullName.toLowerCase().includes(newBooking.clientName.toLowerCase()) && c.fullName.toLowerCase() !== newBooking.clientName.toLowerCase()).length > 0 && (
+                                                <div className="absolute z-50 left-0 right-0 mt-1 bg-white dark:bg-brand-darkCard border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-36 overflow-y-auto">
+                                                    {clients
+                                                        .filter(c => c.fullName.toLowerCase().includes(newBooking.clientName.toLowerCase()))
+                                                        .map(c => (
+                                                            <button
+                                                                key={c.id}
+                                                                type="button"
+                                                                onClick={() => setNewBooking(prev => ({ ...prev, clientName: c.fullName, clientPhone: c.phone }))}
+                                                                className="w-full text-left p-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs flex justify-between"
+                                                            >
+                                                                <span className="font-semibold">{c.fullName}</span>
+                                                                <span className="text-slate-400">{c.phone}</span>
+                                                            </button>
+                                                        ))
+                                                    }
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="font-semibold text-xs block">Telefone (WhatsApp)</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Ex: 11999998888"
+                                                value={newBooking.clientPhone}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setNewBooking(prev => ({ ...prev, clientPhone: val }));
+                                                }}
+                                                className="w-full p-3 bg-white dark:bg-slate-800 rounded-xl border border-brand-blue-200 dark:border-slate-700 outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Data e Horário */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="font-semibold block">Data do Evento</label>
+                                            <input 
+                                                type="date" 
+                                                required
+                                                value={newBooking.eventDate} 
+                                                onChange={(e) => setNewBooking(prev => ({ ...prev, eventDate: e.target.value }))}
+                                                className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="font-semibold block">Entrega</label>
+                                            <input 
+                                                type="time" 
+                                                required
+                                                value={newBooking.deliveryTime} 
+                                                onChange={(e) => setNewBooking(prev => ({ ...prev, deliveryTime: e.target.value }))}
+                                                className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="font-semibold block">Retirada</label>
+                                            <input 
+                                                type="time" 
+                                                required
+                                                value={newBooking.withdrawalTime} 
+                                                onChange={(e) => setNewBooking(prev => ({ ...prev, withdrawalTime: e.target.value }))}
+                                                className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Escolher Brinquedos */}
+                                    <div className="space-y-2">
+                                        <label className="font-semibold block">Brinquedos Solicitados</label>
+                                        <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                                            {toys.map(toy => (
+                                                <label key={toy.id} className="flex items-center gap-2 p-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        value={toy.id}
+                                                        checked={newBooking.selectedToys.includes(String(toy.id))}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setNewBooking(prev => {
+                                                                const checked = prev.selectedToys.includes(val)
+                                                                    ? prev.selectedToys.filter(id => id !== val)
+                                                                    : [...prev.selectedToys, val];
+                                                                return { ...prev, selectedToys: checked };
+                                                            });
+                                                        }}
+                                                        className="accent-brand-pink-500"
+                                                    />
+                                                    <span className="text-xs">{toy.name} ({formatBRL(toy.rentalValue)})</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* ALERTA INTELIGENTE DE CONFLITO IA */}
+                                    {bookingConflict && (
+                                        <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-2xl space-y-2">
+                                            <p className="text-xs font-bold text-red-600 dark:text-red-400">
+                                                <i className="fa-solid fa-triangle-exclamation"></i> Conflito de Agenda Detectado!
+                                            </p>
+                                            <p className="text-xs text-red-500">{bookingConflict}</p>
+                                            
+                                            {/* Sugestões de brinquedos livres (IA) */}
+                                            {aiSuggestions.length > 0 && (
+                                                <div className="mt-2 pt-2 border-t border-red-100 dark:border-red-900/50">
+                                                    <p className="text-xs font-bold text-brand-blue-600">💡 Alternativas Disponíveis neste período:</p>
+                                                    <div className="flex flex-wrap gap-2 mt-1">
+                                                        {aiSuggestions.map(altToy => (
+                                                            <button
+                                                                type="button"
+                                                                key={altToy.id}
+                                                                onClick={() => {
+                                                                    setNewBooking(prev => ({
+                                                                        ...prev,
+                                                                        selectedToys: [...prev.selectedToys.filter(id => toys.find(t => t.id === Number(id))?.status !== 'MAINTENANCE'), String(altToy.id)]
+                                                                    }));
+                                                                    setBookingConflict(null);
+                                                                }}
+                                                                className="px-2 py-1 bg-brand-pink-500 hover:bg-brand-pink-600 text-white rounded-lg text-[10px] font-bold"
+                                                            >
+                                                                Substituir por: {altToy.name} ({formatBRL(altToy.rentalValue)})
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Resumos Financeiros Calculados Dinamicamente (Integrando Frete) */}
+                                    <div className="p-4 bg-gradient-to-r from-brand-blue-50 to-brand-pink-50 dark:from-slate-800 dark:to-slate-700 rounded-2xl grid grid-cols-2 gap-4 text-xs">
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Valor dos Brinquedos</span>
+                                            <span className="font-bold text-sm text-slate-700 dark:text-white">{formatBRL(bookingCalculatedValues.toysSum)}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Valor do Frete (R$)</span>
+                                            <input 
+                                                type="number" 
+                                                placeholder="R$ 0,00"
+                                                value={newBooking.shippingValue}
+                                                onChange={(e) => setNewBooking(prev => ({ ...prev, shippingValue: e.target.value }))}
+                                                className="w-full bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-pink-100 dark:border-slate-700 outline-none text-xs"
+                                            />
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Sinal da Reserva (R$)</span>
+                                            <input 
+                                                type="number" 
+                                                placeholder="Insira o sinal..."
+                                                value={newBooking.depositValue}
+                                                onChange={(e) => setNewBooking(prev => ({ ...prev, depositValue: e.target.value }))}
+                                                className="w-full bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-pink-100 dark:border-slate-700 outline-none text-xs"
+                                            />
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Valor Total (c/ Frete)</span>
+                                            <span className="font-black text-sm text-brand-blue-800 dark:text-white">{formatBRL(bookingCalculatedValues.total)}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Restante a Pagar</span>
+                                            <span className="font-black text-brand-pink-500 text-sm">{formatBRL(bookingCalculatedValues.remaining)}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-slate-400 block font-bold">Porcentagem Paga</span>
+                                            <span className="font-bold text-green-600 text-sm">{bookingCalculatedValues.percentPaid}%</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Observações */}
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Observações do Evento</label>
+                                        <textarea 
+                                            rows="2"
+                                            placeholder="Ex: Ponto de referência, local gramado, tomada próxima..."
+                                            value={newBooking.notes}
+                                            onChange={(e) => setNewBooking(prev => ({ ...prev, notes: e.target.value }))}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        ></textarea>
+                                    </div>
+
+                                    <button 
+                                        type="submit" 
+                                        disabled={!!bookingConflict || newBooking.selectedToys.length === 0 || !newBooking.clientName.trim()}
+                                        className="w-full py-3 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white rounded-xl font-bold text-sm shadow-md transition-all disabled:opacity-50"
+                                    >
+                                        {editingBookingId ? 'Salvar Alterações' : 'Confirmar e Salvar Reserva'}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- MODAL: NOVO CLIENTE --- */}
+                    {showClientModal && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="bg-white dark:bg-brand-darkCard p-8 rounded-3xl max-w-md w-full shadow-2xl border border-pink-100 dark:border-slate-800">
+                                <div className="flex justify-between items-center border-b border-pink-100 dark:border-slate-800 pb-4 mb-6">
+                                    <h3 className="brand-title text-lg font-bold text-brand-pink-600">Novo Cliente</h3>
+                                    <button onClick={() => setShowClientModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-brand-blue-500"><i className="fa-solid fa-times text-lg"></i></button>
+                                </div>
+
+                                <form onSubmit={handleAddClient} className="space-y-4 text-sm">
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Nome Completo</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            placeholder="Ex: João da Silva"
+                                            value={newClient.fullName}
+                                            onChange={(e) => setNewClient(prev => ({ ...prev, fullName: e.target.value }))}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Telefone (WhatsApp)</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            placeholder="Ex: 11999998888"
+                                            value={newClient.phone}
+                                            onChange={(e) => setNewClient(prev => ({ ...prev, phone: e.target.value }))}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Observações do Cliente</label>
+                                        <textarea 
+                                            rows="3"
+                                            placeholder="Ex: Apartamento, exige cadastro prévio..."
+                                            value={newClient.notes}
+                                            onChange={(e) => setNewClient(prev => ({ ...prev, notes: e.target.value }))}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        ></textarea>
+                                    </div>
+
+                                    <button type="submit" className="w-full py-3 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white rounded-xl font-bold transition-all shadow-md">Salvar Cliente</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- MODAL: REGISTRAR PAGAMENTO --- */}
+                    {showPaymentModal && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="bg-white dark:bg-brand-darkCard p-8 rounded-3xl max-w-md w-full shadow-2xl border border-pink-100 dark:border-slate-800">
+                                <div className="flex justify-between items-center border-b border-pink-100 dark:border-slate-800 pb-4 mb-6">
+                                    <h3 className="brand-title text-lg font-bold text-brand-blue-600">Registrar Entrada / Pagamento</h3>
+                                    <button onClick={() => setShowPaymentModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-brand-pink-500"><i className="fa-solid fa-times text-lg"></i></button>
+                                </div>
+
+                                <form onSubmit={handleAddPayment} className="space-y-4 text-sm">
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Reserva Contratante</label>
+                                        <select 
+                                            required
+                                            value={newPayment.bookingId} 
+                                            onChange={(e) => {
+                                                const selectedBooking = bookings.find(b => b.id === Number(e.target.value));
+                                                setNewPayment(prev => ({ 
+                                                    ...prev, 
+                                                    bookingId: e.target.value,
+                                                    amountReceived: selectedBooking ? selectedBooking.remainingValue : ''
+                                                }));
+                                            }}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        >
+                                            <option value="">Selecione a reserva pendente...</option>
+                                            {bookings.filter(b => b.status !== 'PAID' && b.status !== 'CANCELLED').map(b => {
+                                                const c = clients.find(cl => cl.id === b.clientId);
+                                                return <option key={b.id} value={b.id}>{c?.fullName} — Evento: {b.eventDate} (Pendente: {formatBRL(b.remainingValue)})</option>
+                                            })}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Valor Recebido</label>
+                                        <input 
+                                            type="number" 
+                                            required
+                                            placeholder="Ex: 100.00"
+                                            value={newPayment.amountReceived}
+                                            onChange={(e) => setNewPayment(prev => ({ ...prev, amountReceived: e.target.value }))}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Data do Recebimento</label>
+                                        <input 
+                                            type="date" 
+                                            required
+                                            value={newPayment.receivedDate}
+                                            onChange={(e) => setNewPayment(prev => ({ ...prev, receivedDate: e.target.value }))}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        />
+                                    </div>
+
+                                    <button type="submit" className="w-full py-3 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white rounded-xl font-bold transition-all shadow-md">Registrar Recebimento</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- MODAL: NOVO BRINQUEDO --- */}
+                    {showToyModal && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                            <div className="bg-white dark:bg-brand-darkCard p-8 rounded-3xl max-w-md w-full shadow-2xl border border-pink-100 dark:border-slate-800">
+                                <div className="flex justify-between items-center border-b border-pink-100 dark:border-slate-800 pb-4 mb-6">
+                                    <h3 className="brand-title text-lg font-bold text-brand-pink-600">Novo Brinquedo</h3>
+                                    <button onClick={() => setShowToyModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-brand-blue-500"><i className="fa-solid fa-times text-lg"></i></button>
+                                </div>
+
+                                <form onSubmit={handleAddToy} className="space-y-4 text-sm">
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Nome do Brinquedo</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            placeholder="Ex: Cama Elástica Gigante"
+                                            value={newToy.name}
+                                            onChange={(e) => setNewToy(prev => ({ ...prev, name: e.target.value }))}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Valor Base do Aluguel</label>
+                                        <input 
+                                            type="number" 
+                                            required
+                                            placeholder="Ex: 120.00"
+                                            value={newToy.rentalValue}
+                                            onChange={(e) => setNewToy(prev => ({ ...prev, rentalValue: e.target.value }))}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="font-semibold block">Status Inicial</label>
+                                        <select 
+                                            value={newToy.status}
+                                            onChange={(e) => setNewToy(prev => ({ ...prev, status: e.target.value }))}
+                                            className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-pink-100 dark:border-slate-700"
+                                        >
+                                            <option value="AVAILABLE">Disponível</option>
+                                            <option value="MAINTENANCE">Em Manutenção</option>
+                                        </select>
+                                    </div>
+
+                                    <button type="submit" className="w-full py-3 bg-gradient-to-r from-brand-blue-400 to-brand-pink-400 text-white rounded-xl font-bold transition-all shadow-md">Salvar Brinquedo</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            );
+        }
+
+        // Renderização principal do app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

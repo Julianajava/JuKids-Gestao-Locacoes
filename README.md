@@ -1,5 +1,11 @@
 <div align="center">
 
+<img src="banner-jukids.png" width="100%" alt="JuKids - Gestão Inteligente de Locações">
+
+</div>
+
+<br><div align="center">
+
 # 🧸🎈 JuKids 🎠🎉
 
 ### 🌈 Sistema Inteligente de Gestão de Locações
